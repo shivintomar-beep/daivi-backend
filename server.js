@@ -114,10 +114,11 @@ function parseActivitySheet(worksheet) {
     const flatNo = col('flat no', 'flat no.', 'unit no', 'unit', 'flat number', 'flat', 'floor');
     
     // Skip empty rows, repeated headers, or Lobby summary rows
-    const fLow = String(flatNo).toLowerCase().trim().replace(/\s+/g, ' ');
-    if (!flatNo || fLow === 'flat no' || fLow === 'sr no' || fLow === 'total' || fLow === 'completed' || fLow === 'balance' || fLow === 'weekly track') {
-      continue;
-    }
+    const fLow = String(flatNo).trim().toLowerCase();
+const srLow = String(col('sr no', 'sr. no.', 'srno', 's.no', 'sr')).trim().toLowerCase();
+if (!flatNo || fLow === 'flat no' || fLow === 'sr no' || Number(flatNo) > 40000) continue;
+if (fLow === 'total' || fLow === 'completed' || fLow === 'balance' || fLow.includes('weekly')) continue;
+if (srLow === 'total' || srLow === 'completed' || srLow === 'balance' || srLow.includes('weekly')) continue;
 
     const type = col('type', 'flat type', 'unit type');
     const soldStatus = col('sold / unsold', 'sold/unsold', 'status', 'sold status');

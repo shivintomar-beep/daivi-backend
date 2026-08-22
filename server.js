@@ -190,7 +190,7 @@ function buildProgressLogBuffer(rows) {
 
 // Added 'p' to count the green P boxes as done!
 const DONE_VALS = new Set(['done', 'complete', 'completed', 'yes', '✓', 'finished', 'ok', '1', 'true', 'p']);
-const NA_VALS   = new Set(['n/a', 'na', 'not applicable', 'nil', '-', 'n.a', 'n.a.', '']);
+const NA_VALS   = new Set(['n/a', 'na', 'not applicable', 'nil', '-', 'n.a', 'n.a.', 'unsold - not for sale']);
 
 function calcStats(wings, schedule) {
   let totalFlats = 0, sold = 0, finished = 0;

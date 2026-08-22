@@ -122,7 +122,8 @@ if (srLow === 'total' || srLow === 'completed' || srLow === 'balance' || srLow.i
 
     const type = col('type', 'flat type', 'unit type');
     const soldStatus = col('sold / unsold', 'sold/unsold', 'status', 'sold status');
-   const isLobbyRow = !!rowMap['floor']; // Lobbies use a 'floor' column instead of flat no
+   const currentFlat = String(col('flat no', 'flat', 'floor')).toLowerCase();
+const isLobbyRow = currentFlat.includes('floor') || currentFlat.includes('lobby');
 const isUnsold = !isLobbyRow && String(soldStatus).trim().toLowerCase() !== 'sold';
     const tLow = String(type).toLowerCase();
     const isFinished = tLow.includes('finished');

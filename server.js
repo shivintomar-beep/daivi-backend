@@ -122,10 +122,31 @@ if (srLow === 'total' || srLow === 'completed' || srLow === 'balance' || srLow.i
 
     const type = col('type', 'flat type', 'unit type');
     const soldStatus = col('sold / unsold', 'sold/unsold', 'status', 'sold status');
-
+    const isUnsold = String(soldStatus).toLowerCase().includes('unsold');
+    const tLow = String(type).toLowerCase();
+    const isFinished = tLow.includes('finished');
+    const isRaw = tLow.includes('raw') && !tLow.includes('internal');
     const activities = {};
     activityCols.forEach((act) => {
-      activities[act] = String(rowMap[act] ?? '').trim();
+      let val = String(rowMap[act] ?? '').trim();
+      const aLow = act.toLowerCase();
+      if (isUnsold) {
+        val = 'N/A'; // Ignore unsold flats entirely
+      } else {
+        // Rule: Only Raw Flats
+        if (aLow.includes('con. plum') || aLow.includes('conc.plum')) {
+          if (!isRaw) val = 'N/A';
+        }
+        // Rule: Only Finished Flats
+        else if (aLow.includes('electrical') || aLow.includes('first coat') || aLow.includes('gypsum') || aLow.includes('guypsum') || aLow.includes('platform') || aLow.includes('undersunk') || aLow.includes('primer') || aLow.includes('putty') || aLow.includes('conduit') || aLow.includes('kitchen dado')) {
+          if (!isFinished) val = 'N/A';
+        }
+        // Rule: Full Flat Flooring (Only Finished), but don't block Toilet Dado & Flooring
+        else if (aLow.includes('tile/floo') || (aLow.includes('floor') && !aLow.includes('toilet'))) {
+          if (!isFinished) val = 'N/A';
+        }
+      }
+      activities[act] = val;
     });
 
      let floor = null;

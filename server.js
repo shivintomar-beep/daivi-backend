@@ -128,13 +128,12 @@ if (srLow === 'total' || srLow === 'completed' || srLow === 'balance' || srLow.i
       activities[act] = String(rowMap[act] ?? '').trim();
     });
 
-    let floor = null;
-    const floorMatch = flatNo.match(/^[A-Za-z]+(\d{2})\d{2,}$/);
-    if (floorMatch) {
-      floor = parseInt(floorMatch[1], 10);
-    } else {
-      const floorStr = col('floor');
-      if (floorStr) floor = parseInt(floorStr, 10) || null;
+     let floor = null;
+    const digitsOnly = flatNo.replace(/\D/g, '');
+    if (digitsOnly.length >= 3) {
+      floor = Math.floor(parseInt(digitsOnly, 10) / 100);
+    } else if (digitsOnly.length > 0) {
+      floor = parseInt(digitsOnly, 10);
     }
 
     flats.push({ flatNo, type, soldStatus, floor, activities });

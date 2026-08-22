@@ -66,7 +66,7 @@ function toJsDate(val) {
 
 // ─── Find header row by searching for "Sr No" cell ────────────────────────────
 
-const SR_PATTERNS = new Set(['sr no', 'sr. no.', 'sr.no.', 'srno', 'sr no.', 's.no', 's.no.', 'sr']);
+const SR_PATTERNS = new Set(['sr no', 'sr. no.', 'srno', 's.no', 'sr', 'flat no', 'flat no.']);
 
 function findHeaderRow(rows) {
   for (let r = 0; r < Math.min(20, rows.length); r++) {

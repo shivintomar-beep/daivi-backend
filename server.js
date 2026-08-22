@@ -10,13 +10,11 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin pass';
 const BUCKET = 'daivi-files';
 
-// ─── Supabase client ───────────────────────────────────────────────────────────
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_KEY || ''
 );
 
-// ─── Multer (memory storage, 50 MB limit) ─────────────────────────────────────
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 50 * 1024 * 1024 },
@@ -28,8 +26,6 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json());
-
-// ─── Supabase helpers ──────────────────────────────────────────────────────────
 
 async function downloadFile(filename) {
   const { data, error } = await supabase.storage.from(BUCKET).download(filename);
@@ -51,22 +47,16 @@ async function getFileUpdatedAt(filename) {
   return data?.[0]?.updated_at || null;
 }
 
-// ─── Excel date helper ─────────────────────────────────────────────────────────
-
 function toJsDate(val) {
   if (!val && val !== 0) return null;
   if (val instanceof Date) return val;
-  if (typeof val === 'number') {
-    // Excel serial date → JS Date
-    return new Date((val - 25569) * 86400 * 1000);
-  }
+  if (typeof val === 'number') return new Date((val - 25569) * 86400 * 1000);
   const d = new Date(val);
   return isNaN(d) ? null : d;
 }
 
-// ─── Find header row by searching for "Sr No" cell ────────────────────────────
-
-const SR_PATTERNS = new Set(['sr no', 'sr. no.', 'srno', 's.no', 'sr', 'flat no', 'flat no.']);
+// Looks for Flat No or Floor to find where the table starts
+const SR_PATTERNS = new Set(['sr no', 'sr. no.', 'srno', 's.no', 'sr', 'flat no', 'flat no.', 'floor']);
 
 function findHeaderRow(rows) {
   for (let r = 0; r < Math.min(20, rows.length); r++) {
@@ -79,8 +69,6 @@ function findHeaderRow(rows) {
   return null;
 }
 
-// ─── Known non-activity (meta) column names ────────────────────────────────────
-
 const META_COLS = new Set([
   'sr no', 'sr. no.', 'sr.no.', 'srno', 'sr no.', 's.no', 's.no.', 'sr',
   'flat no', 'flat no.', 'unit no', 'unit no.', 'unit', 'flat number', 'flat',
@@ -89,8 +77,6 @@ const META_COLS = new Set([
   'floor', 'wing', 'block', 'name', 'owner', 'owner name',
 ]);
 
-// ─── Parse one activity sheet ──────────────────────────────────────────────────
-
 function parseActivitySheet(worksheet) {
   const raw = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
   const found = findHeaderRow(raw);
@@ -98,10 +84,8 @@ function parseActivitySheet(worksheet) {
 
   const { row: hRow, col: hCol } = found;
   const rawHeaders = raw[hRow] || [];
-  // Only take headers from the Sr No column onwards
   const headers = rawHeaders.slice(hCol).map((h) => String(h || '').trim());
 
-  // Find which headers are activity columns (not meta)
   const activityCols = headers.filter(
     (h) => h && !META_COLS.has(h.toLowerCase().replace(/\s+/g, ' '))
   );
@@ -113,26 +97,29 @@ function parseActivitySheet(worksheet) {
     const srVal = row[hCol];
     if (srVal === '' || srVal === null || srVal === undefined) continue;
 
-    // Build a map of header → cell value for this row
     const rowMap = {};
     headers.forEach((h, i) => {
       if (h) rowMap[h] = row[hCol + i] !== undefined ? row[hCol + i] : '';
     });
 
-    // Flexible lookup helper (case-insensitive)
     const col = (...keys) => {
       for (const k of keys) {
         for (const [h, v] of Object.entries(rowMap)) {
-          if (h.toLowerCase().replace(/\s+/g, ' ') === k.toLowerCase()) {
-            return String(v ?? '').trim();
-          }
+          if (h.toLowerCase().replace(/\s+/g, ' ') === k.toLowerCase()) return String(v ?? '').trim();
         }
       }
       return '';
     };
 
-    const flatNo    = col('flat no', 'flat no.', 'unit no', 'unit', 'flat number', 'flat');
-    const type      = col('type', 'flat type', 'unit type');
+    const flatNo = col('flat no', 'flat no.', 'unit no', 'unit', 'flat number', 'flat', 'floor');
+    
+    // Skip empty rows, repeated headers, or Lobby summary rows
+    const fLow = String(flatNo).toLowerCase().trim().replace(/\s+/g, ' ');
+    if (!flatNo || fLow === 'flat no' || fLow === 'sr no' || fLow === 'total' || fLow === 'completed' || fLow === 'balance' || fLow === 'weekly track') {
+      continue;
+    }
+
+    const type = col('type', 'flat type', 'unit type');
     const soldStatus = col('sold / unsold', 'sold/unsold', 'status', 'sold status');
 
     const activities = {};
@@ -140,7 +127,6 @@ function parseActivitySheet(worksheet) {
       activities[act] = String(rowMap[act] ?? '').trim();
     });
 
-    // Extract floor number from flat number pattern e.g. A1204 → floor 12
     let floor = null;
     const floorMatch = flatNo.match(/^[A-Za-z]+(\d{2})\d{2,}$/);
     if (floorMatch) {
@@ -150,13 +136,10 @@ function parseActivitySheet(worksheet) {
       if (floorStr) floor = parseInt(floorStr, 10) || null;
     }
 
-    if (flatNo) flats.push({ flatNo, type, soldStatus, floor, activities });
+    flats.push({ flatNo, type, soldStatus, floor, activities });
   }
-
   return flats;
 }
-
-// ─── Parse schedule.xlsx ───────────────────────────────────────────────────────
 
 function parseSchedule(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -173,9 +156,7 @@ function parseSchedule(workbook) {
 
   return raw
     .map((row) => {
-      const activity = String(
-        colVal(row, 'activity', 'activity name', 'work', 'item') || Object.values(row)[0] || ''
-      ).trim();
+      const activity = String(colVal(row, 'activity', 'activity name', 'work', 'item') || Object.values(row)[0] || '').trim();
       const plannedStart = colVal(row, 'planned start', 'start date', 'start', 'from', 'begin');
       const plannedEnd   = colVal(row, 'planned end', 'planned finish', 'end date', 'finish date', 'finish', 'to', 'end');
       return {
@@ -186,8 +167,6 @@ function parseSchedule(workbook) {
     })
     .filter((r) => r.activity);
 }
-
-// ─── Parse progress-log.xlsx ───────────────────────────────────────────────────
 
 function parseProgressLog(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -203,21 +182,15 @@ function parseProgressLog(workbook) {
 
 function buildProgressLogBuffer(rows) {
   const wb = XLSX.utils.book_new();
-  const wsData = [
-    ['Date', 'Overall % Complete'],
-    ...rows.map((r) => [r.date, r.percent]),
-  ];
+  const wsData = [['Date', 'Overall % Complete'], ...rows.map((r) => [r.date, r.percent])];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   XLSX.utils.book_append_sheet(wb, ws, 'Progress Log');
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 }
 
-// ─── Status constants ──────────────────────────────────────────────────────────
-
-const DONE_VALS = new Set(['done', 'complete', 'completed', 'yes', '✓', 'finished', 'ok', '1', 'true']);
-const NA_VALS   = new Set(['n/a', 'na', 'not applicable', 'nil', '-', 'n.a', 'n.a.']);
-
-// ─── Calculate summary stats ───────────────────────────────────────────────────
+// Added 'p' to count the green P boxes as done!
+const DONE_VALS = new Set(['done', 'complete', 'completed', 'yes', '✓', 'finished', 'ok', '1', 'true', 'p']);
+const NA_VALS   = new Set(['n/a', 'na', 'not applicable', 'nil', '-', 'n.a', 'n.a.', '']);
 
 function calcStats(wings, schedule) {
   let totalFlats = 0, sold = 0, finished = 0;
@@ -225,7 +198,6 @@ function calcStats(wings, schedule) {
   const behindActivities = new Set();
   const today = new Date();
 
-  // Build activity deadline map from schedule
   const deadlines = {};
   (schedule || []).forEach((s) => {
     if (s.plannedEnd) {
@@ -268,25 +240,18 @@ function calcStats(wings, schedule) {
   };
 }
 
-// ─── Routes ────────────────────────────────────────────────────────────────────
-
-// Health check / keep-alive
 app.get('/api/ping', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// Verify admin password
 app.post('/api/auth', (req, res) => {
   const { password } = req.body;
   if (password === ADMIN_PASSWORD) return res.json({ ok: true });
   res.status(401).json({ error: 'Incorrect password.' });
 });
 
-// Get full dashboard data
 app.get('/api/data', async (_req, res) => {
   try {
     const dataBuf = await downloadFile('data.xlsx');
-    if (!dataBuf) {
-      return res.status(404).json({ error: 'No data.xlsx uploaded yet. Please upload via Admin panel.' });
-    }
+    if (!dataBuf) return res.status(404).json({ error: 'No data.xlsx uploaded yet.' });
 
     const dataWB = XLSX.read(dataBuf, { type: 'buffer' });
     const wings = {};
@@ -302,55 +267,33 @@ app.get('/api/data', async (_req, res) => {
 
     let schedule = [];
     const scheduleBuf = await downloadFile('schedule.xlsx');
-    if (scheduleBuf) {
-      schedule = parseSchedule(XLSX.read(scheduleBuf, { type: 'buffer' }));
-    }
+    if (scheduleBuf) schedule = parseSchedule(XLSX.read(scheduleBuf, { type: 'buffer' }));
 
     let progressLog = [];
     const logBuf = await downloadFile('progress-log.xlsx');
-    if (logBuf) {
-      progressLog = parseProgressLog(XLSX.read(logBuf, { type: 'buffer' }));
-    }
+    if (logBuf) progressLog = parseProgressLog(XLSX.read(logBuf, { type: 'buffer' }));
 
     const lastUpdated = await getFileUpdatedAt('data.xlsx') || new Date().toISOString();
     const summary     = calcStats(wings, schedule);
 
-    res.json({
-      lastUpdated,
-      summary,
-      wings,
-      activityNames: Array.from(allActivityNames),
-      schedule,
-      progressLog,
-    });
+    res.json({ lastUpdated, summary, wings, activityNames: Array.from(allActivityNames), schedule, progressLog });
   } catch (err) {
-    console.error('/api/data error:', err);
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Upload file (data.xlsx or schedule.xlsx)
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   try {
     const { password, fileType = 'data' } = req.body;
-
-    if (password !== ADMIN_PASSWORD) {
-      return res.status(401).json({ error: 'Incorrect password.' });
-    }
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file provided.' });
-    }
-    if (!['data', 'schedule'].includes(fileType)) {
-      return res.status(400).json({ error: 'Invalid fileType. Must be "data" or "schedule".' });
-    }
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Incorrect password.' });
+    if (!req.file) return res.status(400).json({ error: 'No file provided.' });
 
     const filename = fileType === 'data' ? 'data.xlsx' : 'schedule.xlsx';
     const saved = await uploadFile(filename, req.file.buffer);
     if (!saved) return res.status(500).json({ error: 'Failed to save to storage.' });
 
     let overallPercent = null;
-
-    // If data.xlsx uploaded → auto-append today's % to progress log
     if (fileType === 'data') {
       try {
         const dataWB = XLSX.read(req.file.buffer, { type: 'buffer' });
@@ -359,15 +302,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
           const flats = parseActivitySheet(dataWB.Sheets[name]);
           if (flats.length > 0) wings[name] = flats;
         });
-
         let schedule = [];
         const scheduleBuf = await downloadFile('schedule.xlsx');
         if (scheduleBuf) schedule = parseSchedule(XLSX.read(scheduleBuf, { type: 'buffer' }));
+        
+        overallPercent = calcStats(wings, schedule).overallPercent;
 
-        const stats = calcStats(wings, schedule);
-        overallPercent = stats.overallPercent;
-
-        // Fetch existing log, deduplicate today's entry, append
         let logRows = [];
         const logBuf = await downloadFile('progress-log.xlsx');
         if (logBuf) logRows = parseProgressLog(XLSX.read(logBuf, { type: 'buffer' }));
@@ -377,25 +317,14 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         logRows.push({ date: todayStr, percent: overallPercent });
 
         await uploadFile('progress-log.xlsx', buildProgressLogBuffer(logRows));
-        console.log(`Progress log updated: ${todayStr} → ${overallPercent}%`);
       } catch (logErr) {
-        console.error('Progress log update failed:', logErr.message);
+        console.error(logErr.message);
       }
     }
-
-    res.json({
-      success: true,
-      message: `${filename} uploaded successfully.`,
-      overallPercent,
-    });
+    res.json({ success: true, message: `${filename} uploaded.`, overallPercent });
   } catch (err) {
-    console.error('/api/upload error:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ─── Start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Daivi backend running on port ${PORT}`);
-  console.log(`Admin password: [set via ADMIN_PASSWORD env var]`);
-});
+app.listen(PORT, () => console.log(`Running on port ${PORT}`));

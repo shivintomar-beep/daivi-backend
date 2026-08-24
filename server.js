@@ -117,7 +117,7 @@ function parseActivitySheet(worksheet) {
     const fLow = String(flatNo).trim().toLowerCase();
 const srLow = String(col('sr no', 'sr. no.', 'srno', 's.no', 'sr')).trim().toLowerCase();
 if (!flatNo || fLow === 'flat no' || fLow === 'sr no' || Number(flatNo) > 40000) continue;
-if (fLow === 'total' || fLow === 'completed' || fLow === 'balance' || fLow.includes('weekly')) continue;
+if (fLow === 'total' || fLow === 'completed' || fLow === 'balance' || fLow.includes('weekly') || fLow.includes('|') || fLow.includes('flats')) continue;
 if (srLow === 'total' || srLow === 'completed' || srLow === 'balance' || srLow.includes('weekly')) continue;
 
     const type = col('type', 'flat type', 'unit type');

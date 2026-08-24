@@ -162,23 +162,7 @@ function renderDashboard() {
 
   // ── Summary cards
   // OVERRIDE SUMMARY TOTALS (Exclude Common Lobby from total flat counts)
-  let realTotal = 0;
-  let realUnsold = 0;
-  let myFinished = 0;
-  
-  const allF = Object.values(wings).flat();
-  allF.forEach(f => {
-    // If it's a Lobby, we don't count it as a "flat" in the summary cards
-    const isLobby = f.wing && f.wing.toLowerCase().includes('lobby');
-    if (!isLobby) {
-      realTotal++;
-      const isSold = String(f.soldStatus ?? '').trim().toLowerCase() === 'sold';
-      if (!isSold) realUnsold++;
-    }
-    
-    // Count finished flats
-    if (f.type && String(f.type).toLowerCase().includes('finished')) myFinished++;
-  });
+  let realTotal = 0; let realUnsold = 0; let myFinished = 0; Object.entries(wings).forEach(([wingName, wingFlats]) => { const isLobby = wingName.toLowerCase().includes('lobby'); wingFlats.forEach(f => { if (!isLobby) { realTotal++; const isSold = String(f.soldStatus ?? '').trim().toLowerCase() === 'sold'; if (!isSold) realUnsold++; } if (f.type && String(f.type).toLowerCase().includes('finished')) myFinished++; }); }); const allF = Object.values(wings).flat();
   
   $('s-total').textContent   = realTotal;
   $('s-sold').textContent    = summary.sold; // (Sold is already accurate at 234)

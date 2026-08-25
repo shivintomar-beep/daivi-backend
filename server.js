@@ -166,8 +166,8 @@ const isUnsold = !isLobbyRow && String(soldStatus).trim().toLowerCase() !== 'sol
 
 function parseSchedule(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  if (!sheet) return [];
   const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
   const colVal = (row, ...keys) => {
     for (const k of keys) {
       for (const [h, v] of Object.entries(row)) {
@@ -176,10 +176,6 @@ function parseSchedule(workbook) {
     }
     return '';
   };
-function parseScheduleSheet(workbook) {
-  const sheet = workbook.Sheets['Schedule'];
-  if (!sheet) return [];
-  const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   return raw
     .map((row) => {
       const activity = String(colVal(row, 'activity', 'activity name', 'work', 'item') || Object.values(row)[0] || '').trim();

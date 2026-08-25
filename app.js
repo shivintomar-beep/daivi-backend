@@ -199,8 +199,8 @@ function renderDashboard() {
     const balance = s.total - s.done;
     if (balance === 0) return; 
     
-    let planned = s.total;
-    const sItem = schedMap[act.toLowerCase()];
+    let planned = 0;
+    let sItem = schedMap[act.toLowerCase()]; if (!sItem) { const actLow = act.toLowerCase(); sItem = Object.values(schedMap).find(s => { const sLow = String(s.activity).toLowerCase(); return sLow.includes(actLow) || actLow.includes(sLow) || (actLow.includes("gypsum") && sLow.includes("gypsum")) || (actLow.includes("door") && sLow.includes("door")) || (actLow.includes("floor") && sLow.includes("floor")) || (actLow.includes("plum") && sLow.includes("plum")) || (actLow.includes("conduit") && sLow.includes("conduit")); }); }
     if (sItem && sItem.plannedStart && sItem.plannedEnd) {
       const pD = (str) => {
         if (!str) return new Date();
@@ -219,7 +219,7 @@ function renderDashboard() {
         planned = isNaN(pT) ? s.total : pT;
       }
     }
-    if (s.done < planned) { actsBehind++; window.behindNames.push(act); }
+    if (s.done < planned) { actsBehind++; const agency = (sItem && sItem.agency) ? ` - (${sItem.agency})` : ""; window.behindNames.push(act.toUpperCase() + agency); }
   });
   
   $('s-behind').textContent = actsBehind;
@@ -734,7 +734,7 @@ function renderActivitySummary(containerId) {
     const balColor = balance < 10 ? 'var(--green)' : 'var(--red)';
     const balText = balance === 0 ? 'Completed' : balance;
 
-    let planned = s.total;
+    let planned = 0;
     const sched = schedMap[act.toLowerCase()];
     if (sched && sched.plannedStart && sched.plannedEnd) {
       const parseD = (str) => {
@@ -808,3 +808,6 @@ function showBehindModal() {
   }
   document.getElementById('behind-modal').showModal();
 }
+
+
+

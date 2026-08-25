@@ -176,21 +176,26 @@ function parseSchedule(workbook) {
     }
     return '';
   };
-
+function parseScheduleSheet(workbook) {
+  const sheet = workbook.Sheets['Schedule'];
+  if (!sheet) return [];
+  const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   return raw
     .map((row) => {
       const activity = String(colVal(row, 'activity', 'activity name', 'work', 'item') || Object.values(row)[0] || '').trim();
       const plannedStart = colVal(row, 'planned start', 'start date', 'start', 'from', 'begin');
-     const plannedStart = colVal(row, 'planned start', 'start date', 'start', 'from', 'begin');
       const plannedEnd   = colVal(row, 'planned end', 'planned finish', 'end date', 'finish date', 'finish', 'to', 'end');
       const agency       = colVal(row, 'agency', 'contractor', 'vendor');
+      
       return {
         activity,
-        agency: agency ? String(agency).trim() : '',    })
+        agency: agency ? String(agency).trim() : '',
+        plannedStart: toJsDate(plannedStart)?.toISOString().split('T')[0] || String(plannedStart),
+        plannedEnd:   toJsDate(plannedEnd)?.toISOString().split('T')[0]   || String(plannedEnd),
+      };
+    })
     .filter((r) => r.activity);
-}
-
-function parseProgressLog(workbook) {
+}function parseProgressLog(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const raw = XLSX.utils.sheet_to_json(sheet, { defval: '' });
   return raw

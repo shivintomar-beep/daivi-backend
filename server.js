@@ -181,13 +181,12 @@ function parseSchedule(workbook) {
     .map((row) => {
       const activity = String(colVal(row, 'activity', 'activity name', 'work', 'item') || Object.values(row)[0] || '').trim();
       const plannedStart = colVal(row, 'planned start', 'start date', 'start', 'from', 'begin');
+     const plannedStart = colVal(row, 'planned start', 'start date', 'start', 'from', 'begin');
       const plannedEnd   = colVal(row, 'planned end', 'planned finish', 'end date', 'finish date', 'finish', 'to', 'end');
+      const agency       = colVal(row, 'agency', 'contractor', 'vendor');
       return {
         activity,
-        plannedStart: toJsDate(plannedStart)?.toISOString().split('T')[0] || String(plannedStart),
-        plannedEnd:   toJsDate(plannedEnd)?.toISOString().split('T')[0]   || String(plannedEnd),
-      };
-    })
+        agency: agency ? String(agency).trim() : '',    })
     .filter((r) => r.activity);
 }
 
